@@ -10,6 +10,7 @@ require (
 	google.golang.org/grpc v1.79.2
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kubelet v0.33.5
+	sigs.k8s.io/yaml v1.4.0
 )
 
 require (

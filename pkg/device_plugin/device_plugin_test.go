@@ -315,7 +315,7 @@ var _ = Describe("Device Plugin", func() {
 			Expect(deviceList[0].addr).To(Equal("2"))
 			Expect(bdfToIommuMap["1"]).To(Equal("io_1"))
 
-			go createDevicePlugins()
+			go createDevicePlugins(&Config{})
 			time.Sleep(3 * time.Second)
 			stop <- struct{}{}
 
@@ -363,7 +363,7 @@ var _ = Describe("Device Plugin", func() {
 			Expect(vGpuList[0].addr).To(Equal(deviceAddress1))
 			Expect(vGpuList[0].numaNode).To(Equal(int64(2)))
 
-			go createDevicePlugins()
+			go createDevicePlugins(&Config{})
 			time.Sleep(3 * time.Second)
 			stop <- struct{}{}
 
