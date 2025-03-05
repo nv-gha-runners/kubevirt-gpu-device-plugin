@@ -1,0 +1,23 @@
+GPUAliases:
+  - GPUName: TU104_GEFORCE_RTX_2080_REV__A
+    alias: RTX2080
+  - GPUName: TU104_GEFORCE_RTX_2080
+    alias: RTX2080
+  - GPUName: AD102_GEFORCE_RTX_4090
+    alias: RTX4090
+  - GPUName: GH100_H100_PCIE
+    alias: H100
+  - GPUName: GA102GL_RTX_A6000
+    alias: RTXA6000
+  - GPUName: AD104GL_L4
+    alias: L4
+  - GPUName: TU104GL_TESLA_T4
+    alias: T4
+  - GPUName: GA100_A100_PCIE_40GB
+    alias: A100
+  - GPUName: GA100_A100_PCIE_80GB
+    alias: A100
+  - GPUName: GV100GL_TESLA_V100_PCIE_16GB
+    alias: V100
+  - GPUName: GH100_GH200_120GB___480GB
+    alias: GH200

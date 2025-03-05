@@ -61,4 +61,6 @@ COPY --from=builder /go/src/kubevirt-gpu-device-plugin/utils/pci.ids /usr/pci.id
 
 USER 0:0
 
+COPY config.yaml /etc/kubevirt-gpu-device-plugin/config.yaml
+
 CMD ["nvidia-kubevirt-gpu-device-plugin"]
