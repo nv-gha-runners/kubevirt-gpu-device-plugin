@@ -25,7 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 DOCKER_REPO ?= "nvcr.io/nvidia/kubevirt-gpu-device-plugin"
-DOCKER_TAG ?= v1.3.1
+DOCKER_TAG ?= v1.3.1-custom1
 
 PCI_IDS_URL ?= https://pci-ids.ucw.cz/v2.2/pci.ids
 
@@ -38,7 +38,7 @@ test-coverage:
 clean:
 	rm -rf nvidia-kubevirt-gpu-device-plugin && rm -rf coverage.out
 build-image:
-	docker build . -t $(DOCKER_REPO):$(DOCKER_TAG) 
+	docker buildx build --platform linux/arm64,linux/amd64 --push . -t $(DOCKER_REPO):$(DOCKER_TAG)
 push-image: build-image
 	 docker push $(DOCKER_REPO):$(DOCKER_TAG)
 update-pcidb:
