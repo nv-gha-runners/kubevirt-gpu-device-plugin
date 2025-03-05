@@ -67,4 +67,6 @@ COPY --from=builder /go/src/kubevirt-gpu-device-plugin/utils/pci.ids /usr/pci.id
 
 RUN yum update -y
 
+COPY config.yaml /etc/kubevirt-gpu-device-plugin/config.yaml
+
 CMD ["nvidia-kubevirt-gpu-device-plugin"]
