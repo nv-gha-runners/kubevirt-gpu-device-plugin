@@ -77,4 +77,6 @@ COPY --from=builder /workspace/utils/pci.ids /usr/pci.ids
 
 USER 0:0
 
+COPY config.yaml /etc/kubevirt-gpu-device-plugin/config.yaml
+
 CMD ["nvidia-kubevirt-gpu-device-plugin"]
