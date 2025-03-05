@@ -29,18 +29,26 @@ FROM nvcr.io/nvidia/cuda:12.9.1-base-ubi9 as builder
 RUN yum install -y wget make gcc
 
 ARG GOLANG_VERSION=1.24.0
-RUN wget -nv -O - https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-amd64.tar.gz \
-    | tar -C /usr/local -xz
+ARG TARGETPLATFORM
+
+RUN <<EOF
+if [ "${TARGETPLATFORM}" = "linux/amd64" ]; then
+  wget -nv -O - https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
+elif [ "${TARGETPLATFORM}" = "linux/arm64" ]; then
+  wget -nv -O - https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-arm64.tar.gz | tar -C /usr/local -xz
+else
+  echo "Unsupported arch" && exit 1
+fi
+EOF
 
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
-ENV GOOS=linux\
-    GOARCH=amd64
+ENV GOOS=linux
 
 WORKDIR /go/src/kubevirt-gpu-device-plugin
 
-COPY . . 
+COPY . .
 
 RUN make build
 

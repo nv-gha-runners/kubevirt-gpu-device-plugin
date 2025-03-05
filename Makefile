@@ -38,7 +38,7 @@ test-coverage:
 clean:
 	rm -rf nvidia-kubevirt-gpu-device-plugin && rm -rf coverage.out
 build-image:
-	docker build . -t $(DOCKER_REPO):$(DOCKER_TAG) 
+	docker buildx build --platform linux/arm64,linux/amd64 --push . -t $(DOCKER_REPO):$(DOCKER_TAG)
 push-image: build-image
 	 docker push $(DOCKER_REPO):$(DOCKER_TAG)
 update-pcidb:
