@@ -19,5 +19,7 @@ GPUAliases:
     alias: A100
   - GPUName: GV100GL_TESLA_V100_PCIE_16GB
     alias: V100
+  - GPUName: GV100GL_TESLA_V100_PCIE_32GB
+    alias: V100
   - GPUName: GH100_GH200_120GB___480GB
     alias: GH200
