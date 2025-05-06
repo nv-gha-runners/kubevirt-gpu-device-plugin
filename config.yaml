@@ -23,3 +23,5 @@ GPUAliases:
     alias: V100
   - GPUName: GH100_GH200_120GB___480GB
     alias: GH200
+  - GPUName: AD102GL_RTX_6000_ADA_GENERATION
+    alias: RTX6000ADA
