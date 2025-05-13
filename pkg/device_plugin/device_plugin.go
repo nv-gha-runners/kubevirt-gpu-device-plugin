@@ -43,6 +43,8 @@ import (
 
 const (
 	nvidiaVendorID = "10de"
+	pciVGAControllerClass    = "030000"
+	pci3DControllerClass     = "030200"
 )
 
 // Structure to hold details about Nvidia GPU Device
@@ -182,6 +184,16 @@ func createIommuDeviceMap() {
 		//Nvidia vendor id is "10de". Proceed if vendor id is 10de
 		if vendorID == "10de" {
 			log.Println("Nvidia device ", info.Name())
+			// Check if device is a GPU device
+			deviceClass, err := readIDFromFile(basePath, info.Name(), "class")
+			if err != nil {
+				log.Println("Could not get class ID for device ", info.Name())
+				return nil
+			}
+			if deviceClass != pciVGAControllerClass && deviceClass != pci3DControllerClass {
+				log.Println("Not a GPU device, skipping")
+				return nil
+			}
 			//Retrieve iommu group for the device
 			driver, err := readLink(basePath, info.Name(), "driver")
 			if err != nil {
