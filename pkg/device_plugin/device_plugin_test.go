@@ -48,6 +48,7 @@ var deviceName = "1b80"
 var deviceName1 = "1b81"
 var vgpuDeviceName = "vGPUId"
 var vgpuDeviceName1 = "vGPUId1"
+var deviceClass = "030000"
 
 func getFakeLinkDevicePlugin(basePath string, deviceAddress string, link string) (string, error) {
 	if deviceAddress == deviceAddress1 {
@@ -82,16 +83,22 @@ func getFakeIDFromFileDevicePlugin(basePath string, deviceAddress string, link s
 			return nvVendorID, nil
 		} else if link == "device" {
 			return deviceName, nil
+		} else if link == "class" {
+			return deviceClass, nil
 		}
 	} else if deviceAddress == deviceAddress2 {
 		if link == "vendor" {
 			return nvVendorID, nil
 		} else if link == "device" {
 			return deviceName1, nil
+		} else if link == "class" {
+			return deviceClass, nil
 		}
 	} else if deviceAddress == deviceAddress3 {
 		if link == "vendor" {
 			return nvVendorID, nil
+		} else if link == "class" {
+			return deviceClass, nil
 		}
 	}
 	return "", errors.New("Incorrect operation")
