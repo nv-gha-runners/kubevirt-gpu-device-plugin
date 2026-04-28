@@ -31,3 +31,9 @@ GPUAliases:
     alias: RTXPRO6000
   - GPUName: AD102GL_L40G
     alias: L40G
+  - GPUName: AD102GL_L40
+    alias: L40
+  - GPUName: AD102GL_L40S
+    alias: L40S
+  - GPUName: GA102GL_A40
+    alias: A40
