@@ -46,10 +46,10 @@ var devices []*pluginapi.Device
 var iommuGroup1 = "1"
 var iommuGroup2 = "2"
 var iommuGroup3 = "3"
-var iommuGroup4 = "4"
 var pciAddress1 = "11"
 var pciAddress2 = "22"
 var pciAddress3 = "33"
+var pciAddress4 = "44"
 var nvVendorID = "10de"
 
 type fakeDevicePluginListAndWatchServer struct {
@@ -64,10 +64,36 @@ func (x *fakeDevicePluginListAndWatchServer) Send(m *pluginapi.ListAndWatchRespo
 func getFakeIommuMap() map[string][]NvidiaGpuDevice {
 
 	var tempMap map[string][]NvidiaGpuDevice = make(map[string][]NvidiaGpuDevice)
-	tempMap[iommuGroup1] = append(tempMap[iommuGroup1], NvidiaGpuDevice{pciAddress1})
-	tempMap[iommuGroup2] = append(tempMap[iommuGroup2], NvidiaGpuDevice{pciAddress2})
-	tempMap[iommuGroup3] = append(tempMap[iommuGroup3], NvidiaGpuDevice{pciAddress3})
+	tempMap[iommuGroup1] = append(tempMap[iommuGroup1], NvidiaGpuDevice{addr: pciAddress1, numaNode: 0})
+	tempMap[iommuGroup2] = append(tempMap[iommuGroup2], NvidiaGpuDevice{addr: pciAddress2, numaNode: 1})
+	tempMap[iommuGroup3] = append(tempMap[iommuGroup3], NvidiaGpuDevice{addr: pciAddress3, numaNode: 2})
 	return tempMap
+}
+
+func getFakeBdfToIommuMap() map[string]string {
+	return map[string]string{
+		pciAddress1: iommuGroup1,
+		pciAddress2: iommuGroup2,
+		pciAddress3: iommuGroup3,
+	}
+}
+
+func getFakeEGMDevices() ([]EGMDeviceInfo, error) {
+	return nil, nil
+}
+
+func getFakeSharedEGMDevices() ([]EGMDeviceInfo, error) {
+	return []EGMDeviceInfo{{
+		DevPath: "/dev/egm4",
+		GPUBDFs: []string{pciAddress1, pciAddress2},
+	}}, nil
+}
+
+func getFakeMultiSocketEGMDevices() ([]EGMDeviceInfo, error) {
+	return []EGMDeviceInfo{
+		{DevPath: "/dev/egm4", GPUBDFs: []string{pciAddress1, pciAddress2}},
+		{DevPath: "/dev/egm5", GPUBDFs: []string{pciAddress3, pciAddress4}},
+	}, nil
 }
 
 func getFakeLink(basePath string, deviceAddress string, link string) (string, error) {
@@ -88,6 +114,14 @@ func getFakeIDFromFile(basePath string, deviceAddress string, link string) (stri
 
 }
 
+func getFakeIDFromFileForSharedEGM(basePath string, deviceAddress string, link string) (string, error) {
+	if deviceAddress == pciAddress1 || deviceAddress == pciAddress2 {
+		return nvVendorID, nil
+	}
+	return "", errors.New("Incorrect operation")
+
+}
+
 var _ = Describe("Generic Device", func() {
 	var workDir string
 	var err error
@@ -97,8 +131,10 @@ var _ = Describe("Generic Device", func() {
 
 	BeforeEach(func() {
 		returnIommuMap = getFakeIommuMap
+		returnBdfToIommuMap = getFakeBdfToIommuMap
 		readLink = getFakeLink
 		readIDFromFile = getFakeIDFromFile
+		discoverEGMDevices = getFakeEGMDevices
 		var devs []*pluginapi.Device
 		workDir, err = os.MkdirTemp("", "kubevirt-test")
 		Expect(err).ToNot(HaveOccurred())
@@ -116,11 +152,11 @@ var _ = Describe("Generic Device", func() {
 		basePath = workDir
 
 		devs = append(devs, &pluginapi.Device{
-			ID:     iommuGroup1,
+			ID:     pciAddress1,
 			Health: pluginapi.Healthy,
 		})
 		devs = append(devs, &pluginapi.Device{
-			ID:     iommuGroup2,
+			ID:     pciAddress2,
 			Health: pluginapi.Healthy,
 		})
 		dpi = NewGenericDevicePlugin("foo", workDir+"/", devs, &Config{})
@@ -130,6 +166,7 @@ var _ = Describe("Generic Device", func() {
 	})
 
 	AfterEach(func() {
+		discoverEGMDevices = discoverEGMDevicesFunc
 		close(stop)
 		os.RemoveAll(workDir)
 	})
@@ -141,7 +178,7 @@ var _ = Describe("Generic Device", func() {
 	})
 
 	It("Should allocate a device without error", func() {
-		devs := []string{iommuGroup1}
+		devs := []string{pciAddress1}
 		envKey := gpuPrefix + "_FOO"
 		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
 		requests := pluginapi.AllocateRequest{}
@@ -158,13 +195,88 @@ var _ = Describe("Generic Device", func() {
 		Expect(responses.GetContainerResponses()[0].Devices[1].Permissions).To(Equal("mrw"))
 	})
 
+	It("Should inject EGM device when all associated GPUs are allocated", func() {
+		readIDFromFile = getFakeIDFromFileForSharedEGM
+		discoverEGMDevices = getFakeSharedEGMDevices
+		devs := []string{pciAddress1, pciAddress2}
+		envKey := gpuPrefix + "_FOO"
+		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
+		requests := pluginapi.AllocateRequest{}
+		requests.ContainerRequests = append(requests.ContainerRequests, &containerRequests)
+		ctx := context.Background()
+		responses, err := dpi.Allocate(ctx, &requests)
+		Expect(err).To(BeNil())
+		Expect(responses.GetContainerResponses()[0].Envs[envKey]).To(Equal(pciAddress1 + "," + pciAddress2))
+		egmCount := 0
+		for _, dev := range responses.GetContainerResponses()[0].Devices {
+			if dev.HostPath == "/dev/egm4" {
+				egmCount++
+			}
+		}
+		Expect(egmCount).To(Equal(1))
+	})
+
+	It("Should not inject EGM device when only a subset of associated GPUs are allocated", func() {
+		discoverEGMDevices = getFakeSharedEGMDevices
+		devs := []string{pciAddress1}
+		envKey := gpuPrefix + "_FOO"
+		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
+		requests := pluginapi.AllocateRequest{}
+		requests.ContainerRequests = append(requests.ContainerRequests, &containerRequests)
+		ctx := context.Background()
+		responses, err := dpi.Allocate(ctx, &requests)
+		Expect(err).To(BeNil())
+		Expect(responses.GetContainerResponses()[0].Envs[envKey]).To(Equal(pciAddress1))
+		for _, dev := range responses.GetContainerResponses()[0].Devices {
+			Expect(dev.HostPath).ToNot(Equal("/dev/egm4"))
+		}
+	})
+
+	It("Should inject only the matching EGM device on a multi-socket system", func() {
+		readIDFromFile = getFakeIDFromFileForSharedEGM
+		discoverEGMDevices = getFakeMultiSocketEGMDevices
+		devs := []string{pciAddress1, pciAddress2}
+		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
+		requests := pluginapi.AllocateRequest{}
+		requests.ContainerRequests = append(requests.ContainerRequests, &containerRequests)
+		ctx := context.Background()
+		responses, err := dpi.Allocate(ctx, &requests)
+		Expect(err).To(BeNil())
+		egm0Found := false
+		for _, dev := range responses.GetContainerResponses()[0].Devices {
+			Expect(dev.HostPath).ToNot(Equal("/dev/egm5"))
+			if dev.HostPath == "/dev/egm4" {
+				egm0Found = true
+			}
+		}
+		Expect(egm0Found).To(BeTrue())
+	})
+
+	It("Should allocate a device when EGM discovery fails", func() {
+		discoverEGMDevices = func() ([]EGMDeviceInfo, error) {
+			return nil, errors.New("egm discovery failed")
+		}
+		devs := []string{pciAddress1}
+		envKey := gpuPrefix + "_FOO"
+		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
+		requests := pluginapi.AllocateRequest{}
+		requests.ContainerRequests = append(requests.ContainerRequests, &containerRequests)
+		ctx := context.Background()
+		responses, err := dpi.Allocate(ctx, &requests)
+		Expect(err).To(BeNil())
+		Expect(responses.GetContainerResponses()[0].Envs[envKey]).To(Equal(pciAddress1))
+		for _, dev := range responses.GetContainerResponses()[0].Devices {
+			Expect(dev.HostPath).ToNot(Equal("/dev/egm4"))
+		}
+	})
+
 	It("Should allocate a device without error with iommufd support", func() {
 		Expect(os.MkdirAll(filepath.Join(workDir, "dev"), 0744)).To(Succeed())
 		f, err := os.OpenFile(filepath.Join(workDir, "dev", "iommu"), os.O_RDONLY|os.O_CREATE, 0666)
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
 		Expect(os.MkdirAll(filepath.Join(workDir, pciAddress1, "vfio-dev", "vfio3"), 0744)).To(Succeed())
-		devs := []string{iommuGroup1}
+		devs := []string{pciAddress1}
 		envKey := gpuPrefix + "_FOO"
 		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
 		requests := pluginapi.AllocateRequest{}
@@ -188,7 +300,7 @@ var _ = Describe("Generic Device", func() {
 	})
 
 	It("Should not allocate a device and also throw an error", func() {
-		devs := []string{iommuGroup2}
+		devs := []string{pciAddress2}
 		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
 		requests := pluginapi.AllocateRequest{}
 		requests.ContainerRequests = append(requests.ContainerRequests, &containerRequests)
@@ -198,7 +310,7 @@ var _ = Describe("Generic Device", func() {
 	})
 
 	It("Should not allocate a device and also throw an error", func() {
-		devs := []string{iommuGroup3}
+		devs := []string{pciAddress3}
 		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
 		requests := pluginapi.AllocateRequest{}
 		requests.ContainerRequests = append(requests.ContainerRequests, &containerRequests)
@@ -207,15 +319,15 @@ var _ = Describe("Generic Device", func() {
 		Expect(responses).To(BeNil())
 	})
 
-	It("Should not allocate a device but not throw an error", func() {
-		devs := []string{iommuGroup4}
+	It("Should not allocate a device if request contains unknown BDF", func() {
+		devs := []string{pciAddress4}
 		containerRequests := pluginapi.ContainerAllocateRequest{DevicesIDs: devs}
 		requests := pluginapi.AllocateRequest{}
 		requests.ContainerRequests = append(requests.ContainerRequests, &containerRequests)
 		ctx := context.Background()
 		responses, err := dpi.Allocate(ctx, &requests)
-		Expect(err).To(BeNil())
-		Expect(responses.GetContainerResponses()[0].Envs[gpuPrefix]).To(Equal(""))
+		Expect(err).ToNot(BeNil())
+		Expect(responses).To(BeNil())
 	})
 
 	It("Should monitor health of device node", func() {
@@ -238,22 +350,22 @@ var _ = Describe("Generic Device", func() {
 		fakeEmpty := &pluginapi.Empty{}
 		go dpi.ListAndWatch(fakeEmpty, fakeServer)
 		time.Sleep(1 * time.Second)
-		Expect(devices[0].ID).To(Equal(iommuGroup1))
-		Expect(devices[1].ID).To(Equal(iommuGroup2))
+		Expect(devices[0].ID).To(Equal(pciAddress1))
+		Expect(devices[1].ID).To(Equal(pciAddress2))
 		Expect(devices[0].Health).To(Equal(pluginapi.Healthy))
 		Expect(devices[1].Health).To(Equal(pluginapi.Healthy))
 
-		dpi.unhealthy <- iommuGroup2
+		dpi.unhealthy <- pciAddress2
 		time.Sleep(1 * time.Second)
-		Expect(devices[0].ID).To(Equal(iommuGroup1))
-		Expect(devices[1].ID).To(Equal(iommuGroup2))
+		Expect(devices[0].ID).To(Equal(pciAddress1))
+		Expect(devices[1].ID).To(Equal(pciAddress2))
 		Expect(devices[0].Health).To(Equal(pluginapi.Healthy))
 		Expect(devices[1].Health).To(Equal(pluginapi.Unhealthy))
 
-		dpi.healthy <- iommuGroup2
+		dpi.healthy <- pciAddress2
 		time.Sleep(1 * time.Second)
-		Expect(devices[0].ID).To(Equal(iommuGroup1))
-		Expect(devices[1].ID).To(Equal(iommuGroup2))
+		Expect(devices[0].ID).To(Equal(pciAddress1))
+		Expect(devices[1].ID).To(Equal(pciAddress2))
 		Expect(devices[0].Health).To(Equal(pluginapi.Healthy))
 		Expect(devices[1].Health).To(Equal(pluginapi.Healthy))
 	})
