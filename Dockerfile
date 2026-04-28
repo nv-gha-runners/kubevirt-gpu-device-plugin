@@ -33,9 +33,9 @@ ARG TARGETPLATFORM
 
 RUN <<EOF
 if [ "${TARGETPLATFORM}" = "linux/amd64" ]; then
-  wget -nv -O - https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
+  wget -nv -O - https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
 elif [ "${TARGETPLATFORM}" = "linux/arm64" ]; then
-  wget -nv -O - https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-arm64.tar.gz | tar -C /usr/local -xz
+  wget -nv -O - https://go.dev/dl/go${GOLANG_VERSION}.linux-arm64.tar.gz | tar -C /usr/local -xz
 else
   echo "Unsupported arch" && exit 1
 fi
