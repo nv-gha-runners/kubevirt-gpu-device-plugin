@@ -37,3 +37,7 @@ GPUAliases:
     alias: L40S
   - GPUName: GA102GL_A40
     alias: A40
+  # GB300 (device 31c2) isn't in pci.ids yet, so the plugin falls back to the raw
+  # device id as the name; alias that fallback to GB300.
+  - GPUName: "31c2"
+    alias: GB300
