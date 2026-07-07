@@ -37,3 +37,5 @@ GPUAliases:
     alias: L40S
   - GPUName: GA102GL_A40
     alias: A40
+  - GPUName: GB110_GB300
+    alias: GB300
