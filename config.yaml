@@ -39,3 +39,5 @@ GPUAliases:
     alias: A40
   - GPUName: GB110_GB300
     alias: GB300
+  - GPUName: GB20B_GB10
+    alias: GB10
