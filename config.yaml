@@ -41,3 +41,5 @@ GPUAliases:
     alias: GB300
   - GPUName: GB20B_GB10
     alias: GB10
+  - GPUName: GB100_HGX_GB200
+    alias: GB200
